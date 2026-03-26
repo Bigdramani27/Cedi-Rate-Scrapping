@@ -12,13 +12,13 @@ app.get("/", (req, res) => {
 app.get("/scrape", async (req, res) => {
   const PORT = process.env.PORT || 3000;
 
-
   const browser = await puppeteer.launch({
-    headless: "new", // 
+    headless: "new",
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-gpu",
     ],
   });
 
@@ -99,10 +99,8 @@ app.get("/scrape", async (req, res) => {
 
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-
     const today = new Date().toISOString().split("T")[0];
     const filename = `rates_${today}.xlsx`;
-
 
     res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
     res.setHeader(
@@ -118,7 +116,6 @@ app.get("/scrape", async (req, res) => {
     await browser.close();
   }
 });
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
