@@ -35,7 +35,7 @@
 
   <h2>USD → GHS Scraper</h2>
 
-  <button id="btn" onclick="startDownload()">Download CSV</button>
+  <button id="btn" onclick="startDownload()">Download Excel</button>
 
   <div class="spinner" id="loader"></div>
 
@@ -59,22 +59,25 @@
 
           const a = document.createElement('a');
           a.href = url;
-          a.download = "rates_all_pages.csv";
+
+          const today = new Date().toISOString().split("T")[0];
+          a.download = `rates_${today}.xlsx`;
+
           document.body.appendChild(a);
           a.click();
           a.remove();
 
           loader.style.display = 'none';
-          status.textContent = 'Download will start automatically...';
+          status.textContent = 'Download complete ✅';
           btn.disabled = false;
-          btn.textContent = "Download CSV";
+          btn.textContent = "Download Excel";
         })
         .catch(err => {
           console.error(err);
           loader.style.display = 'none';
           status.textContent = 'Error occurred';
           btn.disabled = false;
-          btn.textContent = "Download CSV";
+          btn.textContent = "Download Excel";
         });
     }
   </script>
