@@ -1,5 +1,6 @@
 const express = require("express");
-const puppeteer = require("puppeteer"); // full Puppeteer, includes Chromium
+const axios = require("axios");
+const cheerio = require("cheerio");
 const XLSX = require("xlsx");
 
 const app = express();
@@ -11,8 +12,6 @@ app.get("/", (req, res) => {
 
 app.get("/scrape", async (req, res) => {
   console.log("Starting scrape...");
-
-  let browser;
 
   const categories = [
     {
@@ -52,22 +51,6 @@ app.get("/scrape", async (req, res) => {
   const workbook = XLSX.utils.book_new();
 
   try {
-    // Launch Puppeteer browser
-    browser = await puppeteer.launch({
-      executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium-browser",
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-      ],
-    });
-
-    const page = await browser.newPage();
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-    );
-
     for (const category of categories) {
       console.log(`Scraping category: ${category.name}`);
       const sheetData = [];
@@ -77,50 +60,51 @@ app.get("/scrape", async (req, res) => {
           pageNum === 1
             ? category.baseUrl
             : `${category.baseUrl}?page=${pageNum}`;
-        console.log(`Visiting: ${url}`);
+        console.log(`Fetching URL: ${url}`);
 
         try {
-          await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-          await page.waitForSelector("table tbody tr", { timeout: 60000 });
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const { data } = await axios.get(url);
+          const $ = cheerio.load(data);
 
-          const data = await page.evaluate(() => {
-            const rows = document.querySelectorAll("table tbody tr");
-            return Array.from(rows).map((row) => {
-              const cols = row.querySelectorAll("td");
-              return {
-                name: cols[1]?.innerText.trim(),
-                buying: cols[2]?.innerText.trim(),
-                selling: cols[3]?.innerText.trim(),
-                midRate: cols[4]?.innerText.trim(),
-              };
+          $("table tbody tr").each((i, row) => {
+            const cols = $(row).find("td");
+            sheetData.push({
+              name: $(cols[1]).text().trim(),
+              buying: $(cols[2]).text().trim(),
+              selling: $(cols[3]).text().trim(),
+              midRate: $(cols[4]).text().trim(),
             });
           });
 
-          sheetData.push(...data);
           console.log(`Page ${pageNum} scraped`);
         } catch (err) {
-          console.warn(`Failed to scrape ${url}: ${err.message}`);
+          console.warn(`Failed to fetch ${url}: ${err.message}`);
         }
       }
 
-      const worksheet = XLSX.utils.json_to_sheet(sheetData);
+      const worksheet = XLSX.utils.json_to_sheet(
+        sheetData.length
+          ? sheetData
+          : [{ name: "No data", buying: "-", selling: "-", midRate: "-" }],
+      );
       XLSX.utils.book_append_sheet(workbook, worksheet, category.name);
     }
 
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-
-    res.setHeader("Content-Disposition", "attachment; filename=rate.xlsx");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=rates_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.send(buffer);
+
+    console.log("Scraping finished and Excel sent");
   } catch (err) {
     console.error("Scrape error:", err);
     res.status(500).send("An error occurred during scraping");
-  } finally {
-    if (browser) await browser.close();
   }
 });
 
