@@ -54,7 +54,8 @@ app.get("/scrape", async (req, res) => {
   try {
     // Launch Puppeteer browser
     browser = await puppeteer.launch({
-      headless: true, // runs headless, works on most hosts
+      executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium-browser",
+      headless: true,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
