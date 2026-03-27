@@ -55,7 +55,11 @@ app.get("/scrape", async (req, res) => {
     // Launch Puppeteer browser
     browser = await puppeteer.launch({
       headless: true, // runs headless, works on most hosts
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+      ],
     });
 
     const page = await browser.newPage();
