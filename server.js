@@ -1,8 +1,24 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
+const express = require("express");
+const puppeteer = require("puppeteer");
+const XLSX = require("xlsx");
+
+const app = express();
+
+app.use(express.static(__dirname));
+
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/index.html");
+});
 
 app.get("/scrape", async (req, res) => {
+  const browser = await puppeteer.launch({
+    headless: true,
+    slowMo: 50
+  });
 
+  const page = await browser.newPage();
+
+  // ✅ All categories with their URLs + page limits
   const categories = [
     {
       name: "All",
@@ -40,30 +56,42 @@ app.get("/scrape", async (req, res) => {
 
   try {
     for (const category of categories) {
+      console.log(`\n=== Scraping ${category.name} ===`);
 
       const sheetData = [];
 
       for (let pageNum = 1; pageNum <= category.pages; pageNum++) {
-
         const url =
           pageNum === 1
             ? category.baseUrl
             : `${category.baseUrl}?page=${pageNum}`;
 
-        const { data: html } = await axios.get(url);
+        console.log(`Scraping ${url}...`);
 
-        const $ = cheerio.load(html);
+        await page.goto(url, {
+          waitUntil: "networkidle2",
+          timeout: 60000
+        });
 
-        $("table tbody tr").each((i, el) => {
-          const cols = $(el).find("td");
+        await page.waitForSelector("table tbody tr");
 
-          sheetData.push({
-            name: $(cols[1]).text().trim(),
-            buying: $(cols[2]).text().trim(),
-            selling: $(cols[3]).text().trim(),
-            midRate: $(cols[4]).text().trim(),
+        const data = await page.evaluate(() => {
+          const rows = document.querySelectorAll("table tbody tr");
+
+          return Array.from(rows).map(row => {
+            const cols = row.querySelectorAll("td");
+
+            return {
+              name: cols[1]?.innerText.trim(),
+              buying: cols[2]?.innerText.trim(),
+              selling: cols[3]?.innerText.trim(),
+              midRate: cols[4]?.innerText.trim(),
+            };
           });
         });
+
+        console.log(`Page ${pageNum} done`);
+        sheetData.push(...data);
       }
 
       const worksheet = XLSX.utils.json_to_sheet(sheetData);
@@ -90,5 +118,11 @@ app.get("/scrape", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send("Error occurred");
+  } finally {
+    await browser.close();
   }
+});
+
+app.listen(4000, () => {
+  console.log("Server running at http://localhost:4000");
 });
