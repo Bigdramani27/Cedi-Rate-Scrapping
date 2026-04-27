@@ -18,7 +18,6 @@ app.get("/scrape", async (req, res) => {
 
   const page = await browser.newPage();
 
-  // ✅ All categories with their URLs + page limits
   const categories = [
     {
       name: "All",
