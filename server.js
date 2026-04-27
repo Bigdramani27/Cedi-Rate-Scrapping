@@ -12,8 +12,12 @@ app.get("/", (req, res) => {
 
 app.get("/scrape", async (req, res) => {
   const browser = await puppeteer.launch({
-    headless: true,
-    slowMo: 50
+    headless: "new",
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+    ],
   });
 
   const page = await browser.newPage();
@@ -22,33 +26,35 @@ app.get("/scrape", async (req, res) => {
     {
       name: "All",
       baseUrl: "https://cedirates.com/exchange-rates/usd-to-ghs/",
-      pages: 4
+      pages: 4,
     },
     {
       name: "Banks",
       baseUrl: "https://cedirates.com/exchange-rates/usd-to-ghs/banks/",
-      pages: 3
+      pages: 3,
     },
     {
       name: "Forex Bureaus",
       baseUrl: "https://cedirates.com/exchange-rates/usd-to-ghs/forex-bureaus/",
-      pages: 1
+      pages: 1,
     },
     {
       name: "Cards",
       baseUrl: "https://cedirates.com/exchange-rates/usd-to-ghs/card-payments/",
-      pages: 1
+      pages: 1,
     },
     {
       name: "Remittances",
-      baseUrl: "https://cedirates.com/exchange-rates/usd-to-ghs/money-transfers/",
-      pages: 1
+      baseUrl:
+        "https://cedirates.com/exchange-rates/usd-to-ghs/money-transfers/",
+      pages: 1,
     },
     {
       name: "Crypto Exchanges",
-      baseUrl: "https://cedirates.com/exchange-rates/usd-to-ghs/crypto-exchanges/",
-      pages: 1
-    }
+      baseUrl:
+        "https://cedirates.com/exchange-rates/usd-to-ghs/crypto-exchanges/",
+      pages: 1,
+    },
   ];
 
   const workbook = XLSX.utils.book_new();
@@ -69,7 +75,7 @@ app.get("/scrape", async (req, res) => {
 
         await page.goto(url, {
           waitUntil: "networkidle2",
-          timeout: 60000
+          timeout: 60000,
         });
 
         await page.waitForSelector("table tbody tr");
@@ -77,7 +83,7 @@ app.get("/scrape", async (req, res) => {
         const data = await page.evaluate(() => {
           const rows = document.querySelectorAll("table tbody tr");
 
-          return Array.from(rows).map(row => {
+          return Array.from(rows).map((row) => {
             const cols = row.querySelectorAll("td");
 
             return {
@@ -99,21 +105,17 @@ app.get("/scrape", async (req, res) => {
 
     const buffer = XLSX.write(workbook, {
       type: "buffer",
-      bookType: "xlsx"
+      bookType: "xlsx",
     });
 
-    res.setHeader(
-      "Content-Disposition",
-      "attachment; filename=rate.xlsx"
-    );
+    res.setHeader("Content-Disposition", "attachment; filename=rate.xlsx");
 
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
 
     res.send(buffer);
-
   } catch (err) {
     console.error(err);
     res.status(500).send("Error occurred");
